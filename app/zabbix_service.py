@@ -1,41 +1,25 @@
 import json
+import os
 
 class ZabbixService:
     def __init__(self):
-        self.event_to_card_map = {}
+        self.mapping_file = 'trigger_card_mapping.json'
+        self.mapping_data = {}
 
-    def map_event_to_card(self, event_id, card_id):
-        """
-        Mapeia o ID do evento do Zabbix ao ID do card do Pipefy.
-        """
-        self.event_to_card_map[event_id] = card_id
+    # Carregar mapeamentos do arquivo JSON ao iniciar o serviço
+    def load_mapping_from_file(self):
+        if os.path.exists(self.mapping_file):
+            with open(self.mapping_file, 'r') as f:
+                self.mapping_data = json.load(f)
+        else:
+            self.mapping_data = {}
 
-    def get_card_id_by_event(self, event_id):
-        """
-        Retorna o ID do card no Pipefy baseado no evento do Zabbix.
-        """
-        return self.event_to_card_map.get(event_id)
+    # Salvar o mapeamento do trigger_id e card_id no arquivo JSON
+    def save_card_mapping(self, trigger_id, card_id):
+        self.mapping_data[trigger_id] = card_id
+        with open(self.mapping_file, 'w') as f:
+            json.dump(self.mapping_data, f)
 
-    def delete_event_mapping(self, event_id):
-        """
-        Remove o mapeamento do evento quando o card for fechado.
-        """
-        if event_id in self.event_to_card_map:
-            del self.event_to_card_map[event_id]
-
-    def save_mapping_to_file(self, filename="event_to_card_map.json"):
-        """
-        Salva o mapeamento de eventos para cards em um arquivo JSON para persistência.
-        """
-        with open(filename, 'w') as f:
-            json.dump(self.event_to_card_map, f)
-
-    def load_mapping_from_file(self, filename="event_to_card_map.json"):
-        """
-        Carrega o mapeamento de eventos de um arquivo JSON, caso exista.
-        """
-        try:
-            with open(filename, 'r') as f:
-                self.event_to_card_map = json.load(f)
-        except FileNotFoundError:
-            self.event_to_card_map = {}
+    # Recuperar o card_id usando o trigger_id
+    def get_card_id_by_trigger(self, trigger_id):
+        return self.mapping_data.get(trigger_id)

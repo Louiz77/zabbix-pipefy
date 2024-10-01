@@ -36,13 +36,13 @@ class PipefyService:
         response = requests.post(self.api_url, json={'query': query}, headers=self.headers)
         return response.json()
 
-    def move_card_to_phase(self, card_id, phase_id):
+    def move_card_to_phase(self, card_id):
         # GraphQL mutation para mover o card para outra fase
         query = f'''
         mutation {{
             moveCardToPhase(input: {{
                 card_id: {card_id},
-                destination_phase_id: {phase_id}
+                destination_phase_id: 328586647
             }}) {{
                 card {{
                     id
