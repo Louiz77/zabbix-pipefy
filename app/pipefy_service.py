@@ -17,7 +17,7 @@ class PipefyService:
           createCard(input: {{
             pipe_id: {self.pipe_id},
             phase_id: 328586642
-            title: "{title}",
+            title: "Alerta | {title}",
             fields_attributes: [
               {{
                 field_id: "clique_aqui_para_adicionar_a_justificativa",
