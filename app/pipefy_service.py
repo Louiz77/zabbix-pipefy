@@ -34,6 +34,8 @@ class PipefyService:
         '''
 
         response = requests.post(self.api_url, json={'query': query}, headers=self.headers)
+        print(response.status_code)
+        print(response.json())
         return response.json()
 
     def move_card_to_phase(self, card_id):
@@ -51,6 +53,8 @@ class PipefyService:
         }}
         '''
         response = requests.post(self.api_url, json={'query': query}, headers=self.headers)
+        print(response.status_code)
+        print(response.json())
         return response.json()
 
     def close_card(self, card_id):
@@ -68,4 +72,6 @@ class PipefyService:
         '''
 
         response = requests.post(self.api_url, json={'query': query}, headers=self.headers)
+        print(response.status_code)
+        print(response.json())
         return response.json()

@@ -17,7 +17,10 @@ class WhatsappService:
 
         response = requests.request("POST", self.api_url, headers=self.headers, data=payload)
         print(response)
+        print(response.status_code)
+        print(response.json())
         return jsonify({'message': 'Finalizado'}), 200
+
     def sendMessageResolved(self, message, session_id):
         payload = json.dumps({
             "sessionId": session_id,
@@ -27,4 +30,6 @@ class WhatsappService:
 
         response = requests.request("POST", self.api_url, headers=self.headers, data=payload)
         print(response)
+        print(response.status_code)
+        print(response.json())
         return jsonify({'message': 'Finalizado'}), 200
