@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from .pipefy_service import PipefyService
 from .zabbix_service import ZabbixService
 from .whatsapp_service import WhatsappService
+import json
 
 zabbix_bp = Blueprint('zabbix', __name__)
 zabbix_service = ZabbixService()
@@ -10,7 +11,10 @@ zabbix_service.load_mapping_from_file()
 
 @zabbix_bp.route('/zabbix-webhook', methods=['POST'])
 def handle_zabbix_webhook():
-    data = request.json
+    try:
+        data = json.loads(r"""{ "entry":{ "etag":"W/\"A0UGRK47eCp7I9B9WiRrYU0.\"" } }""")
+    except Exception as e:
+        print(e)
 
     host_ip = data.get('ip', 'IP nao disponivel')
     host_description = data.get('description', 'Descricao nao disponivel')
