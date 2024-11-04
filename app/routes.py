@@ -27,7 +27,7 @@ def handle_zabbix_webhook():
 
         cleaned_data_str = clean_json_string(raw_data)
         with open("report.log", "a") as my_file:
-            my_file.write("JSON cleaned com êxito.\n")
+            my_file.write(f"JSON cleaned com êxito.\n{cleaned_data_str}\n\n")
 
         data = json.loads(cleaned_data_str)
     except json.JSONDecodeError as e:
