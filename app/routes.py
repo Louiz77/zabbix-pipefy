@@ -14,8 +14,8 @@ def clean_json_string(json_string):
     Substitui apenas aspas duplas internas duplicadas em valores específicos do JSON por aspas simples,
     sem adicionar caracteres de escape.
     """
-    json_string = re.sub(r'("problem":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
-    json_string = re.sub(r'("item_name":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
+    json_string = re.sub(r'("problem":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4"', json_string)
+    json_string = re.sub(r'("item_name":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4"', json_string)
     return json_string
 
 @zabbix_bp.route('/zabbix-webhook', methods=['POST'])
