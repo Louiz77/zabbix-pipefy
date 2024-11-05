@@ -4,6 +4,7 @@ from .zabbix_service import ZabbixService
 from .whatsapp_service import WhatsappService
 import json
 import re
+from datetime import datetime
 
 zabbix_bp = Blueprint('zabbix', __name__)
 zabbix_service = ZabbixService()
@@ -14,29 +15,31 @@ def clean_json_string(json_string):
     Substitui apenas aspas duplas internas duplicadas em valores específicos do JSON por aspas simples,
     sem adicionar caracteres de escape.
     """
-    json_string = re.sub(r'("problem":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4"', json_string)
-    json_string = re.sub(r'("item_name":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4"', json_string)
+    json_string = re.sub(r'("problem":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
+    json_string = re.sub(r'("item_name":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
     return json_string
 
 @zabbix_bp.route('/zabbix-webhook', methods=['POST'])
 def handle_zabbix_webhook():
     try:
+        with open("report.log", "a") as my_file:
+            my_file.write(f"-{datetime.now()} | * Trigger enviado pelo Zabbix | Processo iniciado * \n")
         raw_data = request.data.decode('utf-8')
         with open("report.log", "a") as my_file:
-            my_file.write("Recebendo POST do Zabbix - JSON bruto recebido.\n")
+            my_file.write(f"-{datetime.now()} | Recebendo POST do Zabbix - JSON bruto recebido.\n")
 
         cleaned_data_str = clean_json_string(raw_data)
         with open("report.log", "a") as my_file:
-            my_file.write(f"JSON cleaned com êxito.\n{cleaned_data_str}\n\n")
+            my_file.write(f"-{datetime.now()} | JSON cleaned com êxito.\n{cleaned_data_str}\n")
 
         data = json.loads(cleaned_data_str)
     except json.JSONDecodeError as e:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro ao decodificar JSON: {e}\n")
+            my_file.write(f"-{datetime.now()} | Erro ao decodificar JSON: {e}\n")
         return jsonify({'error': 'Falha ao decodificar JSON', 'details': str(e)}), 400
     except Exception as e:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro ao processar dados: {e}\n")
+            my_file.write(f"-{datetime.now()} | Erro ao processar dados: {e}\n")
         return jsonify({'error': 'Falha ao processar dados', 'details': str(e)}), 500
 
     # Extrair e logar informações do JSON
@@ -72,25 +75,25 @@ def handle_zabbix_webhook():
     try:
         response = pipefy_service.create_card(title, description)
         with open("report.log", "a") as my_file:
-            my_file.write(f"Card criado no Pipefy com título '{title}'\n")
+            my_file.write(f"-{datetime.now()} | Card criado no Pipefy com título '{title}'\n")
     except Exception as e:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro ao criar card no Pipefy: {e}\n")
+            my_file.write(f"-{datetime.now()} | Erro ao criar card no Pipefy: {e}\n")
         return jsonify({'error': 'Failed to create card in Pipefy', 'details': str(e)}), 500
 
     if not response or 'errors' in response:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro na resposta do Pipefy API: {response}\n")
+            my_file.write(f"-{datetime.now()} | Erro na resposta do Pipefy API: {response}\n")
         return jsonify({'error': 'Failed to create card in Pipefy', 'details': response}), 500
 
     try:
         card_id = response['data']['createCard']['card']['id']
         zabbix_service.save_card_mapping(data.get('trigger_id'), card_id)
         with open("report.log", "a") as my_file:
-            my_file.write(f"Card {card_id} mapeado com Trigger ID {data.get('trigger_id')}\n")
+            my_file.write(f"-{datetime.now()} | Card {card_id} mapeado com Trigger ID {data.get('trigger_id')}\n")
     except (KeyError, TypeError) as e:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro ao mapear Card ID: {e}\n")
+            my_file.write(f"-{datetime.now()} | Erro ao mapear Card ID: {e}\n")
         return jsonify({'error': 'Unexpected response structure from Pipefy', 'details': str(e)}), 500
 
     # Enviando mensagem no WhatsApp
@@ -100,10 +103,10 @@ def handle_zabbix_webhook():
     try:
         whatsapp_service.sendMessage(message, session_id)
         with open("report.log", "a") as my_file:
-            my_file.write(f"Mensagem enviada no WhatsApp com sessão {session_id}\n")
+            my_file.write(f"-{datetime.now()} | Mensagem enviada no WhatsApp com sessão {session_id}\n")
     except Exception as e:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro ao enviar mensagem no WhatsApp: {e}\n")
+            my_file.write(f"-{datetime.now()} | Erro ao enviar mensagem no WhatsApp: {e}\n")
 
     return jsonify({'message': 'Card created successfully', 'card_id': card_id}), 200
 
@@ -133,7 +136,7 @@ def handle_zabbix_resolved():
     card_id = zabbix_service.get_card_id_by_trigger(data.get('trigger_id'))
     if not card_id:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro: Card ID não encontrado para Trigger ID {data.get('trigger_id')}\n")
+            my_file.write(f"-{datetime.now()} | Erro: Card ID não encontrado para Trigger ID {data.get('trigger_id')}\n")
         return jsonify({'error': 'Card ID not found for the given trigger ID'}), 404
 
     # Movendo o card para a fase de resolvido
@@ -141,10 +144,10 @@ def handle_zabbix_resolved():
     try:
         response = pipefy_service.move_card_to_phase(card_id)
         with open("report.log", "a") as my_file:
-            my_file.write(f"Card {card_id} movido para a fase de resolvido\n")
+            my_file.write(f"-{datetime.now()} | Card {card_id} movido para a fase de resolvido\n")
     except Exception as e:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro ao mover card no Pipefy: {e}\n")
+            my_file.write(f"-{datetime.now()} | Erro ao mover card no Pipefy: {e}\n")
         return jsonify({'error': 'Failed to move card in Pipefy', 'details': str(e)}), 500
 
     # Enviando mensagem no WhatsApp de resolução
@@ -153,9 +156,9 @@ def handle_zabbix_resolved():
     try:
         whatsapp_service.sendMessageResolved(message, session_id)
         with open("report.log", "a") as my_file:
-            my_file.write(f"Mensagem de resolução enviada no WhatsApp para sessão {session_id}\n")
+            my_file.write(f"-{datetime.now()} | Mensagem de resolução enviada no WhatsApp para sessão {session_id}\n")
     except Exception as e:
         with open("report.log", "a") as my_file:
-            my_file.write(f"Erro ao enviar mensagem de resolução no WhatsApp: {e}\n")
+            my_file.write(f"-{datetime.now()} | Erro ao enviar mensagem de resolução no WhatsApp: {e}\n")
 
     return jsonify({'message': 'Card moved successfully'}), 200
