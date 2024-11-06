@@ -10,14 +10,32 @@ zabbix_bp = Blueprint('zabbix', __name__)
 zabbix_service = ZabbixService()
 zabbix_service.load_mapping_from_file()
 
+
 def clean_json_string(json_string):
     """
-    Substitui apenas aspas duplas internas duplicadas em valores específicos do JSON por aspas simples,
-    sem adicionar caracteres de escape.
+    Limpa e ajusta o JSON bruto recebido do Zabbix:
+    - Remove espaços e quebras de linha.
+    - Corrige aspas duplas extras apenas onde necessário.
+    - Corrige barras invertidas em strings que possam gerar erro.
     """
-    json_string = re.sub(r'("problem":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
-    json_string = re.sub(r'("item_name":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
-    return json_string
+    # Remove quebras de linha e múltiplos espaços
+    json_string = re.sub(r'\s+', ' ', json_string)
+
+    # Identifica campos específicos e corrige aspas internas se necessário
+    json_string = re.sub(r'("problem":\s)"([^"]+)",', r'\1"\2",', json_string)
+    json_string = re.sub(r'("item_name":\s)"([^"]+)",', r'\1"\2",', json_string)
+
+    # Corrige qualquer ocorrência de barra invertida (\) antes de caracteres especiais
+    json_string = json_string.replace(r"\\", r"\\")
+
+    # Tenta converter a string JSON limpa em um objeto Python
+    try:
+        json_data = json.loads(json_string)
+        print("JSON cleaned com êxito.")
+        return json_data
+    except json.JSONDecodeError as e:
+        print(f"Erro ao decodificar JSON: {e}")
+        return None
 
 @zabbix_bp.route('/zabbix-webhook', methods=['POST'])
 def handle_zabbix_webhook():
