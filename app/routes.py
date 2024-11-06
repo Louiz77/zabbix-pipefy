@@ -10,25 +10,25 @@ zabbix_bp = Blueprint('zabbix', __name__)
 zabbix_service = ZabbixService()
 zabbix_service.load_mapping_from_file()
 
-
 def clean_json_string(json_string):
     """
     Limpa e ajusta o JSON bruto recebido do Zabbix:
     - Remove espaços e quebras de linha.
-    - Corrige aspas duplas extras apenas onde necessário.
-    - Corrige barras invertidas em strings que possam gerar erro.
+    - Corrige aspas duplicadas em campos específicos.
+    - Corrige barras invertidas problemáticas.
+    - Tenta converter a string JSON limpa para um dicionário.
     """
-    # Remove quebras de linha e múltiplos espaços
+    # Remove espaços e quebras de linha extras
     json_string = re.sub(r'\s+', ' ', json_string)
 
-    # Identifica campos específicos e corrige aspas internas se necessário
-    json_string = re.sub(r'("problem":\s)"([^"]+)",', r'\1"\2",', json_string)
-    json_string = re.sub(r'("item_name":\s)"([^"]+)",', r'\1"\2",', json_string)
+    # Corrige aspas duplicadas nos campos problemáticos
+    json_string = re.sub(r'("problem":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
+    json_string = re.sub(r'("item_name":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
 
-    # Corrige qualquer ocorrência de barra invertida (\) antes de caracteres especiais
+    # Corrige barras invertidas desnecessárias
     json_string = json_string.replace(r"\\", r"\\")
 
-    # Tenta converter a string JSON limpa em um objeto Python
+    # Tenta converter a string JSON limpa em um dicionário Python
     try:
         json_data = json.loads(json_string)
         print("JSON cleaned com êxito.")
