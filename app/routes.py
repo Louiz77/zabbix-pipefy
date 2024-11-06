@@ -14,28 +14,31 @@ def clean_json_string(json_string):
     """
     Limpa e ajusta o JSON bruto recebido do Zabbix:
     - Remove espaços e quebras de linha.
-    - Corrige aspas duplicadas em campos específicos.
-    - Corrige barras invertidas problemáticas.
-    - Tenta converter a string JSON limpa para um dicionário.
+    - Corrige aspas duplas duplicadas e problemáticas.
+    - Corrige campos que estão sem vírgula de separação correta.
+    - Retorna o JSON como dicionário ou uma string JSON original em caso de erro.
     """
-    # Remove espaços e quebras de linha extras
+    # Remove espaços extras e quebras de linha
     json_string = re.sub(r'\s+', ' ', json_string)
 
-    # Corrige aspas duplicadas nos campos problemáticos
+    # Corrige aspas duplicadas nos campos específicos
     json_string = re.sub(r'("problem":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
     json_string = re.sub(r'("item_name":\s*")([^"]*?)"([^"]*?)"([^"]*?")', r'\1\2\3 \4', json_string)
 
-    # Corrige barras invertidas desnecessárias
-    json_string = json_string.replace(r"\\", r"\\")
+    # Insere a vírgula faltante após os valores "problem" e "item_name" quando necessário
+    json_string = re.sub(r'("problem":\s*"[^"]+)(,?\s*"host_ip")', r'\1", \2', json_string)
+    json_string = re.sub(r'("item_name":\s*"[^"]+)(,?\s*"item_value")', r'\1", \2', json_string)
 
     # Tenta converter a string JSON limpa em um dicionário Python
     try:
         json_data = json.loads(json_string)
         print("JSON cleaned com êxito.")
+        print(json_data)
         return json_data
     except json.JSONDecodeError as e:
-        print(f"Erro ao decodificar JSON: {e}")
-        return None
+        print(f"Erro ao decodificar JSON: {e}. Retornando JSON bruto.")
+        print(json_string)
+        return json_string  # Retorna a string JSON original se a conversão falhar
 
 @zabbix_bp.route('/zabbix-webhook', methods=['POST'])
 def handle_zabbix_webhook():
@@ -46,15 +49,26 @@ def handle_zabbix_webhook():
         with open("report.log", "a") as my_file:
             my_file.write(f"-{datetime.now()} | Recebendo POST do Zabbix - JSON bruto recebido.\n")
 
-        cleaned_data_str = clean_json_string(raw_data)
-        with open("report.log", "a") as my_file:
-            my_file.write(f"-{datetime.now()} | JSON cleaned com êxito.\n{cleaned_data_str}\n")
+        # Tenta carregar o JSON bruto
+        try:
+            data = json.loads(raw_data)
+        except json.JSONDecodeError:
+            # Limpa o JSON caso contenha erros
+            cleaned_data = clean_json_string(raw_data)
+            with open("report.log", "a") as my_file:
+                my_file.write(f"-{datetime.now()} | JSON cleaned com êxito.\n{cleaned_data}\n")
 
-        data = json.loads(cleaned_data_str)
+            # Verifica se cleaned_data é um dicionário ou string JSON
+            if isinstance(cleaned_data, str):
+                data = json.loads(cleaned_data)  # Carrega o JSON se ainda for uma string
+            else:
+                data = cleaned_data  # Usa diretamente se já for um dicionário
+
     except json.JSONDecodeError as e:
         with open("report.log", "a") as my_file:
             my_file.write(f"-{datetime.now()} | Erro ao decodificar JSON: {e}\n")
         return jsonify({'error': 'Falha ao decodificar JSON', 'details': str(e)}), 400
+
     except Exception as e:
         with open("report.log", "a") as my_file:
             my_file.write(f"-{datetime.now()} | Erro ao processar dados: {e}\n")
