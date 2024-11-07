@@ -130,7 +130,7 @@ def handle_zabbix_webhook():
 
     # Enviando mensagem no WhatsApp
     whatsapp_service = WhatsappService()
-    session_id = f"1"
+    session_id = f"undefined"
     message = f"{description}"
     try:
         whatsapp_service.sendMessage(message, session_id)
@@ -183,7 +183,7 @@ def handle_zabbix_resolved():
         return jsonify({'error': 'Failed to move card in Pipefy', 'details': str(e)}), 500
 
     # Enviando mensagem no WhatsApp de resolução
-    session_id = f"1"
+    session_id = f"undefined"
     message = f"{title} - {description}"
     try:
         whatsapp_service.sendMessageResolved(message, session_id)

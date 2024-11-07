@@ -14,6 +14,7 @@ class WhatsappService:
             "to": "120363339322672895@g.us",
             "message": str(message)
         })
+        print(payload)
 
         response = requests.request("POST", self.api_url, headers=self.headers, data=payload)
         print(response)
