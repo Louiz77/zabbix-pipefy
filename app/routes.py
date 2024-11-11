@@ -130,7 +130,7 @@ def handle_zabbix_webhook():
 
     # Enviando mensagem no WhatsApp
     whatsapp_service = WhatsappService()
-    session_id = f"undefined"
+    session_id = f"1"
     message = f"{description}"
     try:
         whatsapp_service.sendMessage(message, session_id)
@@ -145,7 +145,37 @@ def handle_zabbix_webhook():
 
 @zabbix_bp.route('/zabbix-resolved', methods=['POST'])
 def handle_zabbix_resolved():
-    data = request.json
+    try:
+        with open("report.log", "a") as my_file:
+            my_file.write(f"-{datetime.now()} | * Trigger enviado pelo Zabbix | Processo iniciado * \n")
+        raw_data = request.data.decode('utf-8')
+        with open("report.log", "a") as my_file:
+            my_file.write(f"-{datetime.now()} | Recebendo POST do Zabbix - JSON bruto recebido.\n")
+
+        # Tenta carregar o JSON bruto
+        try:
+            data = json.loads(raw_data)
+        except json.JSONDecodeError:
+            # Limpa o JSON caso contenha erros
+            cleaned_data = clean_json_string(raw_data)
+            with open("report.log", "a") as my_file:
+                my_file.write(f"-{datetime.now()} | JSON cleaned com êxito.\n{cleaned_data}\n")
+
+            # Verifica se cleaned_data é um dicionário ou string JSON
+            if isinstance(cleaned_data, str):
+                data = json.loads(cleaned_data)  # Carrega o JSON se ainda for uma string
+            else:
+                data = cleaned_data  # Usa diretamente se já for um dicionário
+
+    except json.JSONDecodeError as e:
+        with open("report.log", "a") as my_file:
+            my_file.write(f"-{datetime.now()} | Erro ao decodificar JSON: {e}\n")
+        return jsonify({'error': 'Falha ao decodificar JSON', 'details': str(e)}), 400
+
+    except Exception as e:
+        with open("report.log", "a") as my_file:
+            my_file.write(f"-{datetime.now()} | Erro ao processar dados: {e}\n")
+        return jsonify({'error': 'Falha ao processar dados', 'details': str(e)}), 500
 
     host_ip = data.get('ip', 'IP nao disponivel')
     host_description = data.get('description', 'Descricao nao disponivel')
@@ -183,7 +213,7 @@ def handle_zabbix_resolved():
         return jsonify({'error': 'Failed to move card in Pipefy', 'details': str(e)}), 500
 
     # Enviando mensagem no WhatsApp de resolução
-    session_id = f"undefined"
+    session_id = f"1"
     message = f"{title} - {description}"
     try:
         whatsapp_service.sendMessageResolved(message, session_id)
