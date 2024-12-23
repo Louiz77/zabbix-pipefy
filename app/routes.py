@@ -53,25 +53,13 @@ def handle_zabbix_webhook():
         try:
             data = json.loads(raw_data)
         except json.JSONDecodeError:
-            # Limpa o JSON caso contenha erros
             cleaned_data = clean_json_string(raw_data)
-            with open("report.log", "a") as my_file:
-                my_file.write(f"-{datetime.now()} | JSON cleaned com êxito.\n{cleaned_data}\n")
-
-            # Verifica se cleaned_data é um dicionário ou string JSON
             if isinstance(cleaned_data, str):
-                data = json.loads(cleaned_data)  # Carrega o JSON se ainda for uma string
+                data = json.loads(cleaned_data)
             else:
-                data = cleaned_data  # Usa diretamente se já for um dicionário
-
-    except json.JSONDecodeError as e:
-        with open("report.log", "a") as my_file:
-            my_file.write(f"-{datetime.now()} | Erro ao decodificar JSON: {e}\n")
-        return jsonify({'error': 'Falha ao decodificar JSON', 'details': str(e)}), 400
+                data = cleaned_data
 
     except Exception as e:
-        with open("report.log", "a") as my_file:
-            my_file.write(f"-{datetime.now()} | Erro ao processar dados: {e}\n")
         return jsonify({'error': 'Falha ao processar dados', 'details': str(e)}), 500
 
     # Extrair e logar informações do JSON
@@ -102,46 +90,42 @@ def handle_zabbix_webhook():
         f"📅 *Ultimo Check-In do Host*: _{last_check_in}_\n"
     )
 
-    # Criando um card no Pipefy
-    pipefy_service = PipefyService()
-    try:
-        response = pipefy_service.create_card(title, description)
+    # Verificar severidade
+    if severity in ['high', 'disaster', 'High', 'Disaster']:
         with open("report.log", "a") as my_file:
-            my_file.write(f"-{datetime.now()} | Card criado no Pipefy com título '{title}'\n")
-    except Exception as e:
-        with open("report.log", "a") as my_file:
-            my_file.write(f"-{datetime.now()} | Erro ao criar card no Pipefy: {e}\n")
-        return jsonify({'error': 'Failed to create card in Pipefy', 'details': str(e)}), 500
+            my_file.write(f"-{datetime.now()} | Severidade compativel para criar card\n")
+        pipefy_service = PipefyService()
+        try:
+            response = pipefy_service.create_card(title, description)
+            if not response or 'errors' in response:
+                raise Exception(f"Erro na API do Pipefy: {response}")
 
-    if not response or 'errors' in response:
-        with open("report.log", "a") as my_file:
-            my_file.write(f"-{datetime.now()} | Erro na resposta do Pipefy API: {response}\n")
-        return jsonify({'error': 'Failed to create card in Pipefy', 'details': response}), 500
+            card_id = response['data']['createCard']['card']['id']
+            zabbix_service.save_card_mapping(data.get('trigger_id'), card_id)
 
-    try:
-        card_id = response['data']['createCard']['card']['id']
-        zabbix_service.save_card_mapping(data.get('trigger_id'), card_id)
+            with open("report.log", "a") as my_file:
+                my_file.write(
+                    f"-{datetime.now()} | Card {card_id} criado no Pipefy para Trigger ID {data.get('trigger_id')}\n")
+        except Exception as e:
+            with open("report.log", "a") as my_file:
+                my_file.write(f"-{datetime.now()} | Erro ao criar card no Pipefy: {e}\n")
+            return jsonify({'error': 'Failed to create card in Pipefy', 'details': str(e)}), 500
+    else:
         with open("report.log", "a") as my_file:
-            my_file.write(f"-{datetime.now()} | Card {card_id} mapeado com Trigger ID {data.get('trigger_id')}\n")
-    except (KeyError, TypeError) as e:
-        with open("report.log", "a") as my_file:
-            my_file.write(f"-{datetime.now()} | Erro ao mapear Card ID: {e}\n")
-        return jsonify({'error': 'Unexpected response structure from Pipefy', 'details': str(e)}), 500
+            my_file.write(f"-{datetime.now()} | Severidade {severity} não é suficiente para criar um card.\n")
 
-    # Enviando mensagem no WhatsApp
+    # Enviar mensagem no WhatsApp
     whatsapp_service = WhatsappService()
-    session_id = f"1"
-    message = f"{description}"
+    session_id = f"undefined"
     try:
-        whatsapp_service.sendMessage(message, session_id)
+        whatsapp_service.sendMessage(description, session_id)
         with open("report.log", "a") as my_file:
             my_file.write(f"-{datetime.now()} | Mensagem enviada no WhatsApp com sessão {session_id}\n")
     except Exception as e:
         with open("report.log", "a") as my_file:
             my_file.write(f"-{datetime.now()} | Erro ao enviar mensagem no WhatsApp: {e}\n")
 
-    return jsonify({'message': 'Card created successfully', 'card_id': card_id}), 200
-
+    return jsonify({'message': 'Processamento concluído com sucesso'}), 200
 
 @zabbix_bp.route('/zabbix-resolved', methods=['POST'])
 def handle_zabbix_resolved():
@@ -178,20 +162,20 @@ def handle_zabbix_resolved():
         return jsonify({'error': 'Falha ao processar dados', 'details': str(e)}), 500
 
     host_ip = data.get('ip', 'IP nao disponivel')
-    host_description = data.get('description', 'Descricao nao disponivel')
+    host_description = data.get('host_description', 'Descricao nao disponivel')
 
     problem = data.get('problem', '')
     problem_escaped = problem.replace('"', '\\"')
 
     title = problem_escaped
-    description = (
-        f"\n\n*PROBLEMA RESOLVIDO!!*\n\nHost: {data.get('host')} \n"
-        f"IP: {host_ip} \n"
-        f"Descricao: {host_description} \n"
-        f"Trigger ID: {data.get('trigger_id')} \n"
-        f"Trigger Status: *{data.get('trigger_status')}*"
+    message = (
+        f"✅ *PROBLEMA RESOLVIDO!* ✅\n\n"
+        f"🔧 *Título do Problema*: _{title}_\n"
+        f"🖥️ *Host*: _{data.get('host', 'Host nao disponivel')}_\n"
+        f"🌐 *IP*: _{host_ip}_\n"
+        f"🏷️ *Descricao da Maquina*: _{host_description}_\n"
+        f"📍 *Trigger ID*: {data.get('trigger_id')}\n"
     )
-
     whatsapp_service = WhatsappService()
 
     # Buscar o card_id relacionado ao trigger_id
@@ -213,8 +197,7 @@ def handle_zabbix_resolved():
         return jsonify({'error': 'Failed to move card in Pipefy', 'details': str(e)}), 500
 
     # Enviando mensagem no WhatsApp de resolução
-    session_id = f"1"
-    message = f"{title} - {description}"
+    session_id = f"undefined"
     try:
         whatsapp_service.sendMessageResolved(message, session_id)
         with open("report.log", "a") as my_file:
