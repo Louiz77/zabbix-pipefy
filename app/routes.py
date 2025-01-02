@@ -181,6 +181,18 @@ def handle_zabbix_resolved():
     )
     whatsapp_service = WhatsappService()
 
+    if severity not in ["High", "Disaster"]:
+        # Enviar mensagem sem mover card
+        session_id = "undefined"
+        try:
+            whatsapp_service.sendMessageResolved(message, session_id)
+            with open("report.log", "a") as my_file:
+                my_file.write(f"-{datetime.now()} | Mensagem de resolução enviada no WhatsApp para severidade {severity}\n")
+        except Exception as e:
+            with open("report.log", "a") as my_file:
+                my_file.write(f"-{datetime.now()} | Erro ao enviar mensagem de resolução no WhatsApp: {e}\n")
+        return jsonify({'message': f'Problema resolvido com severidade {severity}. Nenhuma ação necessária.'}), 200
+
     # Buscar o card_id relacionado ao trigger_id
     card_id = zabbix_service.get_card_id_by_trigger(data.get('trigger_id'))
     if not card_id:
@@ -200,7 +212,7 @@ def handle_zabbix_resolved():
         return jsonify({'error': 'Failed to move card in Pipefy', 'details': str(e)}), 500
 
     # Enviando mensagem no WhatsApp de resolução
-    session_id = f"undefined"
+    session_id = "undefined"
     try:
         whatsapp_service.sendMessageResolved(message, session_id)
         with open("report.log", "a") as my_file:
