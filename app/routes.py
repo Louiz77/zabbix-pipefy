@@ -167,6 +167,8 @@ def handle_zabbix_resolved():
     problem = data.get('problem', '')
     problem_escaped = problem.replace('"', '\\"')
 
+    severity = data.get('trigger_severity', '')
+
     title = problem_escaped
     message = (
         f"✅ *PROBLEMA RESOLVIDO!* ✅\n\n"
@@ -175,6 +177,7 @@ def handle_zabbix_resolved():
         f"🌐 *IP*: _{host_ip}_\n"
         f"🏷️ *Descricao da Maquina*: _{host_description}_\n"
         f"📍 *Trigger ID*: {data.get('trigger_id')}\n"
+        f"📊 *Severidade*: _{severity}_\n"
     )
     whatsapp_service = WhatsappService()
 
